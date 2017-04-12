@@ -80,7 +80,6 @@ static BOOL FindLinesInFile(NSData *fileData,const void *first,size_t first_len,
 @property (readwrite, assign) BOOL isEditingConnection;
 
 - (void)_saveCurrentDetailsCreatingNewFavorite:(BOOL)createNewFavorite validateDetails:(BOOL)validateDetails;
-- (BOOL)_checkHost;
 #ifndef SP_CODA
 - (void)_sortFavorites;
 - (void)_sortTreeNode:(SPTreeNode *)node usingKey:(NSString *)key;
@@ -205,9 +204,6 @@ static NSComparisonResult _compareFavoritesUsingKey(id favorite1, id favorite2, 
 			return;
 		}
 	}
-
-	// Ensure that a socket connection is not inadvertently used
-	if (![self _checkHost]) return;
 
 	// If SSL keys have been supplied, verify they exist
 	if (([self type] == SPTCPIPConnection || [self type] == SPSocketConnection) && [self useSSL]) {
@@ -1205,19 +1201,6 @@ static NSComparisonResult _compareFavoritesUsingKey(id favorite1, id favorite2, 
 
 #endif
 
-/**
- * Alert sheet callback method - invoked when the error sheet is closed.
- */
-- (void)localhostErrorSheetDidEnd:(NSAlert *)alert returnCode:(NSInteger)returnCode contextInfo:(void *)contextInfo
-{	
-	if (returnCode == NSAlertAlternateReturn) {
-		[self setType:SPSocketConnection];
-		[self setHost:@""];
-	} 
-	else {
-		[self setHost:@"127.0.0.1"];
-	}
-}
 
 #pragma mark -
 #pragma mark Private API
@@ -1256,9 +1239,6 @@ static NSComparisonResult _compareFavoritesUsingKey(id favorite1, id favorite2, 
 		);
 		return;
 	}
-
-	// Ensure that a socket connection is not inadvertently used
-	if (![self _checkHost]) return;
 
 
 	// Set up the favourite, or get the mutable dictionary for the current favourite.
@@ -1492,27 +1472,6 @@ static NSComparisonResult _compareFavoritesUsingKey(id favorite1, id favorite2, 
 
 	[[NSNotificationCenter defaultCenter] postNotificationName:SPConnectionFavoritesChangedNotification object:self];
 #endif
-}
-
-/**
- * Check the host field and ensure it isn't set to 'localhost' for non-socket connections.
- */
-- (BOOL)_checkHost
-{
-	if ([self type] != SPSocketConnection && [[self host] isEqualToString:@"localhost"]) {
-		SPBeginAlertSheet(NSLocalizedString(@"You have entered 'localhost' for a non-socket connection", @"title of error when using 'localhost' for a network connection"),
-						  NSLocalizedString(@"Use 127.0.0.1", @"Use 127.0.0.1 button"),	// Main button
-						  NSLocalizedString(@"Connect via socket", @"Connect via socket button"),	// Alternate button
-						  nil,	// Other button
-						  [dbDocument parentWindow],	// Window to attach to
-						  self,	// Modal delegate
-						  @selector(localhostErrorSheetDidEnd:returnCode:contextInfo:),	// Did end selector
-						  NULL,	// Contextual info for selectors
-						  NSLocalizedString(@"To MySQL, 'localhost' is a special host and means that a socket connection should be used.\n\nDid you mean to use a socket connection, or to connect to the local machine via a port?  If you meant to connect via a port, '127.0.0.1' should be used instead of 'localhost'.", @"message of error when using 'localhost' for a network connection"));
-		return NO;
-	}
-	
-	return YES;
 }
 
 /**
